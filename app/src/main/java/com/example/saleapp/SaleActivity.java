@@ -9,6 +9,11 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.saleapp.databinding.ActivitySaleBinding;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+
 
 public class SaleActivity extends AppCompatActivity {
     public class SaleItem{
@@ -74,19 +79,31 @@ public class SaleActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
         binding.informationText.setText("");
         receipt=new receiptData();
+        receipt.receiptStartDate=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime());
     }
     public void addClick(View view){
-
+        receipt.addSaleItem(new SaleItem(1,"a",4,10));
+//        receipt.addSaleItem(new SaleItem(Integer.parseInt(binding.productid.getText().toString()),
+//                binding.ProductName.getText().toString(),
+//                Integer.parseInt(binding.price.getText().toString()),
+//                Integer.parseInt(binding.VAT.getText().toString())
+//        ));
     }
     public void payClick(View view){
-        receipt.addSaleItem(new SaleItem(3,"ddd",3,0));
-//        receipt.addPayItem(new PayItem(0,500));
-        int receiptNUmb--
+        receipt.addPayItem(new PayItem(1,4));
         AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
         AlertDialog errorDialog = alertDialogBuilder.create();
         errorDialog.setMessage(String.valueOf(saveReceipt(receipt)));
         errorDialog.setTitle("OK");
         errorDialog.show();
+    }
+    public void cancelClick(View view){
+        binding.productid.setText("");
+        binding.ProductName.setText("");
+        binding.price.setText("");
+        binding.VAT.setText("");
+        receipt=new receiptData();
+        receipt.receiptStartDate=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime());
     }
     public native int saveReceipt(receiptData r);
 }

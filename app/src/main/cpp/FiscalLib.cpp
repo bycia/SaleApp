@@ -32,29 +32,32 @@ typedef struct _Receipt
 
 
 static UserInfo users[10];
+static const char* DB_PATH;
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_saleapp_LoginActivity_init(JNIEnv *env, jobject thiz, jstring path) {
     sqlite3 *dbHandler;
     char *errmsg = 0;
-    int rc=sqlite3_open(env->GetStringUTFChars(path,0), &dbHandler);
-    if(rc==SQLITE_OK) {
+    DB_PATH=env->GetStringUTFChars(path,0);
+    if(sqlite3_open(DB_PATH, &dbHandler)==SQLITE_OK) {
         sqlite3_exec(dbHandler, "CREATE TABLE IF NOT EXISTS ReceiptSummary(" \
-                           "ID INT PRIMARY KEY AUTOINCREMENT," \
-                           "ReceiptNo INT,"
-                                "ReceiptDate VARCHAR(20),"
-                                "ReceiptTotal REAL,"
-                                "CreditPayment REAL,"
-                                "CashPayment REAL,"
-                                "QRPayment REAL", NULL, 0, &errmsg);
+                           "ID INTEGER PRIMARY KEY AUTOINCREMENT," \
+                           "ReceiptNo INTEGER,"
+                            "ReceiptDate VARCHAR(20),"
+                            "ReceiptTotal REAL,"
+                            "CreditPayment REAL,"
+                            "CashPayment REAL,"
+                            "QRPayment REAL)", NULL, 0, &errmsg);
         sqlite3_exec(dbHandler, "CREATE TABLE IF NOT EXISTS ReceiptDetails(" \
-                           "ID INT PRIMARY KEY AUTOINCREMENT,"\
-                           "FOREIGN KEY(ReceiptID) REFERENCES ReceiptSummary(ID),"\
-                           "ProductID INT,"\
+                           "ID INTEGER PRIMARY KEY AUTOINCREMENT,"\
+                           "ReceiptID INTEGER,"\
+                           "ProductID INTEGER,"\
                            "ProductName VARCHAR(50),"\
-                           "Price INT,"\
-                           "VatRate INT", NULL, NULL, &errmsg);
+                           "Price INTEGER,"\
+                           "VatRate INTEGER,"\
+                           "FOREIGN KEY(ReceiptID) REFERENCES ReceiptSummary(ID))", NULL, NULL, &errmsg);
+        sqlite3_close(dbHandler);
     }
     users[0].userId = 1;
     strcpy(users[0].nameSurname, "user1");
@@ -96,6 +99,27 @@ Java_com_example_saleapp_LoginActivity_login(JNIEnv *env, jobject thiz, jint id,
     return false;
 }
 
+int CallBackIntScalarVal=0;
+int CallBackIntScalar(void *a_param, int argc, char **argv, char **column){
+    CallBackIntScalarVal=atoi(argv[0]);
+    return 0;
+}
+
+char LastReceiptDate[20];
+int LastReceiptNo=-1;
+int CallBackReceiptDateReceiptNo(void * a_param,int argc,char **argv, char **column){
+    strcpy(LastReceiptDate,argv[0]);
+    LastReceiptNo=atoi(argv[1]);
+    return 0;
+}
+
+//int The_Callback(void *a_param, int argc, char **argv, char **column){
+//    for (int i=0; i< argc; i++)
+//        printf("%s,\t", argv[i]);
+//    printf("\n");
+//    return 0;
+//}
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_example_saleapp_SaleActivity_saveReceipt(JNIEnv *env, jobject thiz, jobject r) {
@@ -106,11 +130,11 @@ Java_com_example_saleapp_SaleActivity_saveReceipt(JNIEnv *env, jobject thiz, job
     jobject receiptDate=env->GetObjectField(r,fieldId_Of_receiptStartDate);
     if(receiptDate!=NULL)
         receipt.receiptDate=env->GetStringUTFChars((jstring)receiptDate,0);
-    jfieldID fieldId_Of_SaleItemIndex=env->GetFieldID(receiptData_class,"SaleItemIndex", "S");
-    jshort SaleItemIndex=env->GetShortField(r,fieldId_Of_SaleItemIndex);
+//    jfieldID fieldId_Of_SaleItemIndex=env->GetFieldID(receiptData_class,"SaleItemIndex", "S");
+//    jshort SaleItemIndex=env->GetShortField(r,fieldId_Of_SaleItemIndex);
     jfieldID fieldId_Of_SaleItem = env->GetFieldID(receiptData_class, "items","[Lcom/example/saleapp/SaleActivity$SaleItem;");
     jobject SaleItems=env->GetObjectField(r,fieldId_Of_SaleItem);
-    if(SaleItemIndex>0 && SaleItems!=NULL) {
+    if(SaleItems!=NULL) {
         jobjectArray SaleItemsArray = static_cast<jobjectArray>(SaleItems);
 //        jint length_Of_items = env->GetArrayLength(SaleItemsArray);
 //        receipt.items = (_SaleItem *) malloc(sizeof(_SaleItem) * SaleItemIndex);
@@ -145,9 +169,9 @@ Java_com_example_saleapp_SaleActivity_saveReceipt(JNIEnv *env, jobject thiz, job
     }
     jfieldID fieldId_Of_PayItem = env->GetFieldID(receiptData_class,"payItems", "[Lcom/example/saleapp/SaleActivity$PayItem;");
     jobject PayItems=env->GetObjectField(r,fieldId_Of_PayItem);
-    jfieldID fieldId_Of_PayItemIndex=env->GetFieldID(receiptData_class,"PayItemIndex", "S");
-    jshort PayItemIndex=env->GetShortField(r,fieldId_Of_PayItemIndex);
-    if(PayItemIndex>0 && PayItems!=NULL) {
+//    jfieldID fieldId_Of_PayItemIndex=env->GetFieldID(receiptData_class,"PayItemIndex", "S");
+//    jshort PayItemIndex=env->GetShortField(r,fieldId_Of_PayItemIndex);
+    if(PayItems!=NULL) {
         jobjectArray PayItemsArray = static_cast<jobjectArray>(PayItems);
 //        jint length_Of_Payments = env->GetArrayLength(PayItemsArray);
 //        receipt.payments = (_PayItem *) malloc(sizeof(_PayItem) * PayItemIndex);
@@ -166,8 +190,77 @@ Java_com_example_saleapp_SaleActivity_saveReceipt(JNIEnv *env, jobject thiz, job
             }
         }
     }
-    if(receipt.items[4].itemId!=NULL)
-        return receipt.items[4].itemId;
-    return -1;
-//    return sizeof(receipt.items)/sizeof(SaleItem);
+    sqlite3 *dbHandler;
+    char * err=NULL;
+    if(sqlite3_open(DB_PATH,&dbHandler)==SQLITE_OK)
+    {
+        receipt.receiptNo = 1;
+        if (sqlite3_exec(dbHandler, "select ReceiptDate,ReceiptNo from ReceiptSummary order by ReceiptDate DESC,ReceiptNo DESC LIMIT 1", CallBackReceiptDateReceiptNo, NULL, &err) == SQLITE_OK){}
+        {
+            bool SameDay=true;
+            for(int i=0;i<10 && SameDay;i++)
+                if(receipt.receiptDate[i]!=LastReceiptDate[i])
+                    SameDay=false;
+            if(SameDay)
+                receipt.receiptNo=LastReceiptNo+1;
+        }
+
+        int ReceiptTotal=0;
+        int CashPayment=0;
+        int CreditPayment=0;
+        int QRPayment=0;
+        for(int i=0;i<NUMBER_OF_SALEITEMS;i++) {
+            if(receipt.items[i].itemPrice!=NULL) {
+                ReceiptTotal += receipt.items[i].itemPrice;
+            }
+            else
+                break;
+        }
+        for(int i=0;i<NUMBER_OF_PAYITEMS;i++) {
+            if(receipt.payments[i].payType!=NULL) {
+                if(receipt.payments[i].payType==1)
+                    CashPayment+=receipt.payments[i].payAmount;
+                else if(receipt.payments[i].payType==2)
+                    CreditPayment+=receipt.payments[i].payAmount;
+                else if(receipt.payments[i].payType==3)
+                    QRPayment+=receipt.payments[i].payAmount;
+            }
+            else
+                break;
+        }
+
+        char query[1024];
+        sprintf(query,"INSERT INTO ReceiptSummary("\
+                               "ReceiptNo,"\
+                               "ReceiptDate,"\
+                               "ReceiptTotal,"\
+                               "CreditPayment,"\
+                               "CashPayment,"\
+                               "QRPayment"\
+                               ") VALUES(%d,'%s',%d,%d,%d,%d)",receipt.receiptNo,receipt.receiptDate,
+                               ReceiptTotal,CreditPayment,CashPayment,QRPayment);
+        sqlite3_exec(dbHandler,query,NULL,NULL,&err);
+
+        int receiptId=sqlite3_last_insert_rowid(dbHandler);
+
+        for(int i=0;i<NUMBER_OF_SALEITEMS;i++){
+            if(receipt.items[i].itemId!=NULL){
+                sprintf(query,"INSERT INTO ReceiptDetails("\
+                                "ReceiptID,"\
+                                "ProductID,"\
+                                "ProductName,"\
+                                "Price,"\
+                                "VatRate"\
+                                ") VALUES(%d,%d,'%s',%d,%d)",receiptId,receipt.items[i].itemId,
+                        receipt.items[i].itemName, receipt.items[i].itemPrice,receipt.items[i].vatRate);
+                sqlite3_exec(dbHandler,query,NULL,NULL,&err);
+            }
+            else
+                break;
+        }
+    }
+    sqlite3_close(dbHandler);
+    if(err!=NULL)
+        return -1;
+    return receipt.receiptNo;
 }
