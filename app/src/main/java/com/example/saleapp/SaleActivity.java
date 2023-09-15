@@ -1,5 +1,7 @@
 package com.example.saleapp;
 
+import android.app.Activity;
+import android.app.Application;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -11,6 +13,7 @@ import android.text.method.DigitsKeyListener;
 import android.view.View;
 import android.widget.EditText;
 
+import androidx.activity.result.ActivityResult;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -24,6 +27,8 @@ import java.util.Date;
 
 
 public class SaleActivity extends AppCompatActivity {
+
+    final int REQUEST_CODE_FOR_PAYMENTAPP=1;
     public class SaleItem{
         int itemId;
         String itemName;
@@ -96,6 +101,8 @@ public class SaleActivity extends AppCompatActivity {
         System.loadLibrary("saleapp");
     }
     private ActivitySaleBinding binding;
+    final Context ctx=this;
+    protected final BetterActivityResult<Intent, ActivityResult> activityLauncher = BetterActivityResult.registerActivityForResult(this);
 
     receiptData receipt;
 
@@ -170,8 +177,10 @@ public class SaleActivity extends AppCompatActivity {
         binding.ProductId.requestFocus();
     }
     public void payClick(View view){
-        int UnpaidAmount=receipt.getTheUnpaidAmount();
-        final EditText payAmount=new EditText(this);
+        final int UnpaidAmount=receipt.getTheUnpaidAmount();
+        if (UnpaidAmount==0)
+            return;
+        EditText payAmount=new EditText(this);
         payAmount.setInputType(InputType.TYPE_CLASS_NUMBER);
         payAmount.setFilters(new InputFilter[]
                 {
@@ -179,35 +188,57 @@ public class SaleActivity extends AppCompatActivity {
                         new InputFilter.LengthFilter(String.valueOf(UnpaidAmount).length())
                 });
         payAmount.setKeyListener(DigitsKeyListener.getInstance("0123456789"));
-        Context ctx=this;
         new AlertDialog.Builder(ctx)
                 .setTitle("Pay amount")
                 .setMessage("Please enter the amount you'd like to pay")
                 .setView(payAmount)
                 .setPositiveButton("Pay", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
-                        receipt.addPayItem(new PayItem(1,Integer.parseInt(payAmount.getText().toString())));
-                        //PaymentApp
-                        int returnCode=0;
-                        if(returnCode==0) {
-                            int receiptNo = saveReceipt(receipt);
-                            if (receiptNo > 0) {
-                                new AlertDialog.Builder(ctx)
-                                        .setTitle("Receipt no: " + receiptNo)
-                                        .setMessage("Receipt is created successfully")
-                                        .show();
-                            } else {
-                                new AlertDialog.Builder(ctx)
-                                        .setTitle("Opps!")
-                                        .setMessage("Something went wrong.")
-                                        .show();
-                            }
-                            cancelClick(view);
+                        if(payAmount.getText().toString().length()>0)
+                        {
+                            //PaymentApp
+                            Intent PaymentApp = new Intent();
+                            PaymentApp.setClassName("com.example.paymentapp","com.example.paymentapp.MainActivity");
+                            PaymentApp.putExtra("payAmount",Integer.parseInt(payAmount.getText().toString()));
+                            PaymentApp.putExtra("UnpaidAmount",UnpaidAmount);
+                            activityLauncher.launch(PaymentApp,result->{
+                                if(result.getResultCode()==Activity.RESULT_OK){
+//                                    new AlertDialog.Builder(ctx)
+//                                            .setMessage("OK")
+//                                            .show();
+                                    String responseCode = result.getData().getStringExtra("ResponseCode");
+                                    int payAmount = result.getData().getIntExtra("payAmount", 0);
+                                    int UnpaidAmount = result.getData().getIntExtra("UnpaidAmount", 0);
+                                    int PaymentType = result.getData().getIntExtra("PaymentType", 0);
+                                    if (responseCode != null && responseCode.equals("0") == true) {
+                                        receipt.addPayItem(new PayItem(PaymentType, payAmount));
+                                        if (UnpaidAmount-payAmount == 0) {
+                                            int receiptNo = saveReceipt(receipt);
+                                            if (receiptNo > 0) {
+                                                new AlertDialog.Builder(ctx)
+                                                        .setTitle("Receipt no: " + receiptNo)
+                                                        .setMessage("Receipt is created successfully")
+                                                        .show();
+                                            } else {
+                                                new AlertDialog.Builder(ctx)
+                                                        .setTitle("Opps!")
+                                                        .setMessage("Something went wrong.")
+                                                        .show();
+                                            }
+                                            cancelClick(null);
+                                            binding.informationText.setText("Total: 0");
+                                        } else {
+                                            binding.informationText.setText("Total: s" + (UnpaidAmount-payAmount));
+                                        }
+                                    }
+                                }
+                            });
                         }
                     }
                 })
                 .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
+
                     }
                 })
                 .show();
@@ -248,7 +279,6 @@ public class SaleActivity extends AppCompatActivity {
             return b > a ? c >= a && c <= b : c >= b && c <= a;
         }
     }
-
     public native int saveReceipt(receiptData r);
 
 }
