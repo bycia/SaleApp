@@ -76,12 +76,13 @@
         app:layout_constraintTop_toBottomOf="@+id/topLayer" />
 
     <EditText
-        android:id="@+id/productid"
+        android:id="@+id/ProductId"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:ems="10"
         android:layout_marginLeft="25dp"
         android:inputType="number"
+        android:hint="[1,99999]"
         android:text=""
         app:layout_constraintLeft_toRightOf="@id/Product_ID_text"
         app:layout_constraintBaseline_toBaselineOf="@id/Product_ID_text"
@@ -98,12 +99,13 @@
         app:layout_constraintBaseline_toBaselineOf="@id/Product_name_text"
         />
     <EditText
-        android:id="@+id/price"
+        android:id="@+id/Price"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:ems="10"
         android:layout_marginLeft="25dp"
         android:inputType="numberDecimal"
+        android:hint="[1 and 1000]"
         android:text=""
         app:layout_constraintLeft_toRightOf="@id/Price_text"
         app:layout_constraintBaseline_toBaselineOf="@id/Price_text"
@@ -115,6 +117,7 @@
         android:ems="10"
         android:layout_marginLeft="25dp"
         android:inputType="text"
+        android:hint="[0, 99]"
         android:text=""
         app:layout_constraintLeft_toRightOf="@id/VAT_text"
         app:layout_constraintBaseline_toBaselineOf="@id/VAT_text"

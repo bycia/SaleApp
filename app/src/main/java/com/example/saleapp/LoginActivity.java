@@ -29,16 +29,15 @@ public class LoginActivity extends AppCompatActivity {
     }
     public void buttonClick(View view){
         boolean userId_and_PasswordMatched=login(Integer.parseInt(binding.idfield.getText().toString()),binding.passfield.getText().toString());
-        if(userId_and_PasswordMatched)
+        if(userId_and_PasswordMatched) {
             SwitchToSaleActivity();
+        }
         else
         {
-//            AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
-//            AlertDialog errorDialog = alertDialogBuilder.create();
-////            errorDialog.setMessage("ID and Password didnt match");
-//            errorDialog.setMessage(getPackageManager().getPackageInfo("com.example.saleapp", 0).applicationInfo.dataDir);
-//            errorDialog.setTitle("Error");
-//            errorDialog.show();
+            new AlertDialog.Builder(this)
+                .setMessage("ID and Password didnt match")
+                .setTitle("Error")
+                .show();
         }
     }
 

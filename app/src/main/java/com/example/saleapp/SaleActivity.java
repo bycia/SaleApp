@@ -1,7 +1,15 @@
 package com.example.saleapp;
 
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
+import android.text.InputFilter;
+import android.text.InputType;
+import android.text.Spanned;
+import android.text.method.DigitsKeyListener;
 import android.view.View;
+import android.widget.EditText;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -62,12 +70,33 @@ public class SaleActivity extends AppCompatActivity {
                     break;
                 }
         }
+        public int getTotalAmount(){
+            int total=0;
+            for(SaleItem i:this.items)
+                if(i!=null)
+                    total+=i.itemPrice;
+                else
+                    break;
+            return total;
+        }
+
+        public int getTheUnpaidAmount()
+        {
+            int total=this.getTotalAmount();
+            for(PayItem i:this.payItems)
+                if(i!=null)
+                    total-=i.PayAmount;
+                else
+                    break;
+            return total;
+        }
     }
 
     static {
         System.loadLibrary("saleapp");
     }
     private ActivitySaleBinding binding;
+
     receiptData receipt;
 
     @Override
@@ -77,33 +106,149 @@ public class SaleActivity extends AppCompatActivity {
 
         binding = ActivitySaleBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-        binding.informationText.setText("");
+        binding.informationText.setText("Total: 0");
         receipt=new receiptData();
         receipt.receiptStartDate=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime());
+
+        DigitsKeyListener numbers=DigitsKeyListener.getInstance("0123456789");
+
+        binding.ProductId.setFilters(new InputFilter[]
+                {
+                        new InputFilterMinMax(1, 9999),
+                        new InputFilter.LengthFilter(4)
+                });
+        binding.ProductId.setKeyListener(numbers);
+        binding.ProductName.setFilters(new InputFilter[]
+                {
+                     new InputFilter.LengthFilter(20)
+                });
+        binding.Price.setFilters(new InputFilter[]{
+                new InputFilterMinMax(1,1000),
+                new InputFilter.LengthFilter(4)
+        });
+        binding.Price.setKeyListener(numbers);
+        binding.VAT.setFilters(new InputFilter[]{
+                new InputFilterMinMax(0,99),
+                new InputFilter.LengthFilter(2)
+        });
+        binding.VAT.setKeyListener(numbers);
+
     }
     public void addClick(View view){
-        receipt.addSaleItem(new SaleItem(1,"a",4,10));
-//        receipt.addSaleItem(new SaleItem(Integer.parseInt(binding.productid.getText().toString()),
-//                binding.ProductName.getText().toString(),
-//                Integer.parseInt(binding.price.getText().toString()),
-//                Integer.parseInt(binding.VAT.getText().toString())
-//        ));
+        Boolean err=false;
+        if(binding.ProductId.getText().toString().length()==0) {
+            binding.ProductId.setError("Cannot be blank");
+            err=true;
+        }
+        if(binding.ProductName.getText().toString().length()==0){
+            binding.ProductName.setError("Cannot be blank");
+            err=true;
+        }
+        if(binding.Price.getText().toString().length()==0){
+            binding.Price.setError("Cannot be blank");
+            err=true;
+        }
+        if(binding.VAT.getText().toString().length()==0){
+            binding.VAT.setError("Cannot be blank");
+            err=true;
+        }
+        if(err)
+            return;
+        receipt.addSaleItem(new SaleItem(Integer.parseInt(binding.ProductId.getText().toString()),
+                binding.ProductName.getText().toString(),
+                Integer.parseInt(binding.Price.getText().toString()),
+                Integer.parseInt(binding.VAT.getText().toString())
+        ));
+        binding.informationText.setText("Total: "+String.valueOf(receipt.getTotalAmount()));
+        new AlertDialog.Builder(this)
+                .setMessage("It's added")
+                .show();
+        binding.ProductName.setText("");
+        binding.ProductId.setText("");
+        binding.Price.setText("");
+        binding.VAT.setText("");
+        binding.ProductId.requestFocus();
     }
     public void payClick(View view){
-        receipt.addPayItem(new PayItem(1,4));
-        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
-        AlertDialog errorDialog = alertDialogBuilder.create();
-        errorDialog.setMessage(String.valueOf(saveReceipt(receipt)));
-        errorDialog.setTitle("OK");
-        errorDialog.show();
+        int UnpaidAmount=receipt.getTheUnpaidAmount();
+        final EditText payAmount=new EditText(this);
+        payAmount.setInputType(InputType.TYPE_CLASS_NUMBER);
+        payAmount.setFilters(new InputFilter[]
+                {
+                        new InputFilterMinMax(1, UnpaidAmount),
+                        new InputFilter.LengthFilter(String.valueOf(UnpaidAmount).length())
+                });
+        payAmount.setKeyListener(DigitsKeyListener.getInstance("0123456789"));
+        Context ctx=this;
+        new AlertDialog.Builder(ctx)
+                .setTitle("Pay amount")
+                .setMessage("Please enter the amount you'd like to pay")
+                .setView(payAmount)
+                .setPositiveButton("Pay", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        receipt.addPayItem(new PayItem(1,Integer.parseInt(payAmount.getText().toString())));
+                        //PaymentApp
+                        int returnCode=0;
+                        if(returnCode==0) {
+                            int receiptNo = saveReceipt(receipt);
+                            if (receiptNo > 0) {
+                                new AlertDialog.Builder(ctx)
+                                        .setTitle("Receipt no: " + receiptNo)
+                                        .setMessage("Receipt is created successfully")
+                                        .show();
+                            } else {
+                                new AlertDialog.Builder(ctx)
+                                        .setTitle("Opps!")
+                                        .setMessage("Something went wrong.")
+                                        .show();
+                            }
+                            cancelClick(view);
+                        }
+                    }
+                })
+                .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                    }
+                })
+                .show();
     }
     public void cancelClick(View view){
-        binding.productid.setText("");
+        binding.ProductId.setText("");
         binding.ProductName.setText("");
-        binding.price.setText("");
+        binding.Price.setText("");
         binding.VAT.setText("");
+        binding.ProductId.requestFocus();
         receipt=new receiptData();
         receipt.receiptStartDate=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime());
+        binding.informationText.setText("Total: 0");
     }
+
+    public class InputFilterMinMax implements InputFilter {
+
+        private int min, max;
+
+        public InputFilterMinMax(int min, int max) {
+            this.min = min;
+            this.max = max;
+        }
+
+        @Override
+        public CharSequence filter(CharSequence source, int start, int end, Spanned dest, int dstart, int dend) {
+            try {
+                int input = Integer.parseInt(dest.toString() + source.toString());
+                if (isInRange(min, max, input))
+                    return null;
+            } catch (NumberFormatException nfe) {
+                nfe.printStackTrace();
+            }
+            return "";
+        }
+
+        private boolean isInRange(int a, int b, int c) {
+            return b > a ? c >= a && c <= b : c >= b && c <= a;
+        }
+    }
+
     public native int saveReceipt(receiptData r);
+
 }
