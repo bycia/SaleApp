@@ -26,8 +26,21 @@ public class LoginActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
 
         init(getApplication().getDataDir().toString()+"/data.db");
+        binding.idfield.requestFocus();
     }
     public void buttonClick(View view){
+        boolean err=false;
+        if(binding.idfield.getText().length()==0) {
+            binding.idfield.setError("Cannot be blank");
+            err=true;
+        }
+        if(binding.passfield.getText().length()==0) {
+            binding.passfield.setError("Cannot be blank");
+            err=true;
+        }
+        if(err)
+            return;
+
         boolean userId_and_PasswordMatched=login(Integer.parseInt(binding.idfield.getText().toString()),binding.passfield.getText().toString());
         if(userId_and_PasswordMatched) {
             SwitchToSaleActivity();
@@ -53,7 +66,5 @@ public class LoginActivity extends AppCompatActivity {
 
     public native void init(String path);
 
-
-//    public native String login(int id, String password);
     public native boolean login(int id, String password);
 }
