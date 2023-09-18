@@ -228,7 +228,7 @@ public class SaleActivity extends AppCompatActivity {
                                             cancelClick(null);
                                             binding.informationText.setText("Total: 0");
                                         } else {
-                                            binding.informationText.setText("Total: s" + (UnpaidAmount-payAmount));
+                                            binding.informationText.setText("Total: " + (UnpaidAmount-payAmount));
                                         }
                                     }
                                 }
